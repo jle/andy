@@ -15,11 +15,6 @@
  */
 package com.vandalsoftware.android.spdy;
 
-import static org.jboss.netty.handler.codec.spdy.SpdyCodecUtil.*;
-
-import java.nio.ByteOrder;
-import java.util.Set;
-
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
@@ -28,6 +23,29 @@ import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelStateEvent;
 import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
+
+import java.nio.ByteOrder;
+import java.util.Set;
+
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_DATA_FLAG_FIN;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_FLAG_FIN;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_FLAG_UNIDIRECTIONAL;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_GOAWAY_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_HEADERS_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_HEADER_SIZE;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_MAX_NV_LENGTH;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_MAX_VERSION;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_MIN_VERSION;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_NOOP_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_PING_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_RST_STREAM_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_SETTINGS_CLEAR;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_SETTINGS_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_SETTINGS_PERSISTED;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_SETTINGS_PERSIST_VALUE;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_SYN_REPLY_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_SYN_STREAM_FRAME;
+import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_WINDOW_UPDATE_FRAME;
 
 /**
  * Encodes a SPDY Data or Control Frame into a {@link ChannelBuffer}.
