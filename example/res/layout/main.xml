@@ -7,6 +7,10 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Start"/>
+    <Button android:id="@+id/stop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Stop"/>
     <com.vandalsoftware.android.spdyexample.LogView
             android:padding="10dp"
             android:id="@+id/logview"
