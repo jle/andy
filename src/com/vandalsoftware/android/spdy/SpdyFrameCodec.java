@@ -20,6 +20,7 @@ import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 
+import java.nio.channels.WritableByteChannel;
 /**
  * A combination of {@link SpdyFrameDecoder} and {@link SpdyFrameEncoder}.
  * @apiviz.has org.jboss.netty.handler.codec.spdy.SpdyFrameDecoder
@@ -63,13 +64,13 @@ public class SpdyFrameCodec implements ChannelUpstreamHandler,
         encoder = new SpdyFrameEncoder(version, compressionLevel, windowBits, memLevel);
     }
 
-    public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e)
+    public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e, Object o)
             throws Exception {
-        decoder.handleUpstream(ctx, e);
+        decoder.handleUpstream(ctx, e, o);
     }
 
-    public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent e)
+    public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent e, WritableByteChannel c, Object o)
             throws Exception {
-        encoder.handleDownstream(ctx, e);
+        encoder.handleDownstream(ctx, e, c, o);
     }
 }

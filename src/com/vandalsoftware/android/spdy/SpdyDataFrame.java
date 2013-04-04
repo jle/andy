@@ -16,7 +16,6 @@
 package com.vandalsoftware.android.spdy;
 
 import org.jboss.netty.buffer.ChannelBuffer;
-import org.jboss.netty.buffer.ChannelBuffers;
 
 /**
  * A SPDY Protocol Data Frame
@@ -70,13 +69,13 @@ public interface SpdyDataFrame {
 
     /**
      * Returns the data payload of this frame.  If there is no data payload
-     * {@link ChannelBuffers#EMPTY_BUFFER} is returned.
+     * {@link org.jboss.netty.buffer.ChannelBuffers#EMPTY_BUFFER} is returned.
      */
     ChannelBuffer getData();
 
     /**
      * Sets the data payload of this frame.  If {@code null} is specified,
-     * the data payload will be set to {@link ChannelBuffers#EMPTY_BUFFER}.
+     * the data payload will be set to {@link org.jboss.netty.buffer.ChannelBuffers#EMPTY_BUFFER}.
      * The data payload cannot exceed 16777215 bytes.
      */
     void setData(ChannelBuffer data);

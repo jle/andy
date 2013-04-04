@@ -15,6 +15,8 @@
  */
 package com.vandalsoftware.android.spdy;
 
+import android.util.Log;
+
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
@@ -25,6 +27,7 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 
 import java.nio.ByteOrder;
+import java.nio.channels.WritableByteChannel;
 import java.util.Set;
 
 import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_DATA_FLAG_FIN;
@@ -98,7 +101,7 @@ public class SpdyFrameEncoder implements ChannelDownstreamHandler {
     }
 
     public void handleDownstream(
-            final ChannelHandlerContext ctx, ChannelEvent evt) throws Exception {
+            final ChannelHandlerContext ctx, ChannelEvent evt, WritableByteChannel c, Object msg) throws Exception {
         if (evt instanceof ChannelStateEvent) {
             ChannelStateEvent e = (ChannelStateEvent) evt;
             switch (e.getState()) {
@@ -114,13 +117,12 @@ public class SpdyFrameEncoder implements ChannelDownstreamHandler {
             }
         }
 
-        if (!(evt instanceof MessageEvent)) {
-            ctx.sendDownstream(evt);
-            return;
-        }
+//        if (!(evt instanceof MessageEvent)) {
+//            ctx.sendDownstream(evt);
+//            return;
+//        }
 
         final MessageEvent e = (MessageEvent) evt;
-        Object msg = e.getMessage();
 
         if (msg instanceof SpdyDataFrame) {
 
@@ -176,7 +178,9 @@ public class SpdyFrameEncoder implements ChannelDownstreamHandler {
                 }
                 // Writes of compressed data must occur in order
                 final ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(frame, data);
-                Channels.write(ctx, e.getFuture(), buffer, e.getRemoteAddress());
+                Log.v("jle", "Readable: " + buffer.readableBytes());
+                Log.v("jle", "Writing syn " + msg);
+                c.write(buffer.toByteBuffer());
             }
             return;
 
