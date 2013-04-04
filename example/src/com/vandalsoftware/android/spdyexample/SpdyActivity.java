@@ -9,11 +9,12 @@ import android.widget.Button;
 
 import com.vandalsoftware.android.net.SSLSocketChannel;
 import com.vandalsoftware.android.net.SocketReadHandler;
+import com.vandalsoftware.android.spdy.DefaultSpdySynStreamFrame;
+import com.vandalsoftware.android.spdy.SpdyFrameCodec;
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBuffers;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.PrintWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -64,27 +65,37 @@ public class SpdyActivity extends Activity {
     }
 
     class ConnectTask extends AsyncTask<Void, Void, Socket> implements SocketReadHandler {
+        private SpdyFrameCodec mSpdyFrameCodec;
+
+        @Override
+        protected void onPreExecute() {
+            mSpdyFrameCodec = new SpdyFrameCodec(3);
+        }
+
         @Override
         protected void onPostExecute(Socket s) {
             mSock = s;
         }
 
         public void handleRead(ByteChannel channel) {
-            byte[] buf = new byte[512];
+            Log.d(TAG, "handleRead");
+            byte[] buf = new byte[1024];
             ByteBuffer b = ByteBuffer.wrap(buf);
-            StringBuilder sb = new StringBuilder();
+            ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(b);
             int bytesRead;
             try {
                 do {
                     bytesRead = channel.read(b);
                     b.flip();
-                    sb.append(new String(buf, b.position(), b.remaining()));
+                    mSpdyFrameCodec.handleUpstream(null, null, channelBuffer);
                     b.clear();
                 } while (bytesRead > 0);
             } catch (IOException e) {
                 e.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
             }
-            Log.d(TAG, "proc " + sb);
+            Log.d(TAG, "handleRead done");
         }
 
         @Override
@@ -95,23 +106,16 @@ public class SpdyActivity extends Activity {
                 connector.setSocketReadHandler(this);
                 connector.connect(new InetSocketAddress("api.twitter.com", 443), 15000);
                 Log.d(TAG, "socket connected.");
-                final ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                PrintWriter writer = new PrintWriter(new OutputStreamWriter(baos));
-                writer.println("GET /1/statuses/home_timeline.json HTTP/1.1");
-                writer.println("User-Agent: jle-baby/1.0.0");
-                writer.println("Accept: */*");
-                writer.println("Host: api.twitter.com");
-                writer.print("\r\n");
-                writer.flush();
-                ByteBuffer outBuffer = ByteBuffer.allocate(baos.size());
-                outBuffer.put(baos.toByteArray());
-                connector.write(outBuffer);
+                SpdyFrameCodec codec = mSpdyFrameCodec;
+                codec.handleDownstream(null, null, connector, new DefaultSpdySynStreamFrame(1, 0, (byte) 0));
                 Log.d(TAG, "Wrote to socket.");
             } catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (KeyManagementException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
                 e.printStackTrace();
             } finally {
                 if (false && s != null) {

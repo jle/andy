@@ -60,10 +60,9 @@ public final class SSLSocketChannel implements ByteChannel {
         mSocketReadHandler = handler;
     }
 
-    public int write(final ByteBuffer src) {
+    public int write(ByteBuffer src) {
         int writtenBytes = 0;
         try {
-            src.flip();
             final byte[] buf = mOutBuf;
             Log.d(TAG, "begin writing..." + src.remaining());
             while (src.hasRemaining()) {
