@@ -15,7 +15,7 @@ import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 
 public final class SSLSocketChannel implements ByteChannel {
-    private static final String TAG = "spdy";
+    private static final String TAG = "net";
     private final Socket mSocket;
     private SocketReadHandler mSocketReadHandler;
     private boolean mConnected;
@@ -107,15 +107,14 @@ public final class SSLSocketChannel implements ByteChannel {
     public int read(ByteBuffer dst) throws IOException {
         int remaining = mInBuffer.remaining();
         if (remaining > 0) {
-            return remaining - dst.put(mInBuffer).remaining();
+            dst.put(mInBuffer);
+            return remaining - mInBuffer.remaining();
         } else {
             return 0;
         }
     }
 
     private class SocketReadRunnable implements Runnable {
-        private static final String TAG = "SocketReadRunnable";
-
         private final InputStream mInputStream;
 
         public SocketReadRunnable(Socket sock) throws IOException {
@@ -132,7 +131,9 @@ public final class SSLSocketChannel implements ByteChannel {
                 int index = 0;
                 int bytesRead;
                 while ((bytesRead = mInputStream.read(buf, index, len - index)) != -1) {
+                    Log.v(TAG, "read from socket = " + bytesRead);
                     buffer.position(index).limit(index + bytesRead);
+                    Log.v(TAG, "buf " + buffer.position() + ", " + buffer.limit());
                     handleRead();
                     if (buffer.hasRemaining()) {
                         index = bytesRead;

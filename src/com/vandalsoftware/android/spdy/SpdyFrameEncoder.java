@@ -178,8 +178,8 @@ public class SpdyFrameEncoder implements ChannelDownstreamHandler {
                 }
                 // Writes of compressed data must occur in order
                 final ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(frame, data);
-                Log.v("jle", "Readable: " + buffer.readableBytes());
-                Log.v("jle", "Writing syn " + msg);
+                Log.d("spdy", "Writeable: " + buffer.readableBytes());
+                Log.d("spdy", "Writing syn " + msg);
                 c.write(buffer.toByteBuffer());
             }
             return;

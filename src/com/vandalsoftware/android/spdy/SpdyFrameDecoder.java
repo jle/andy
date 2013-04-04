@@ -15,6 +15,8 @@
  */
 package com.vandalsoftware.android.spdy;
 
+import android.util.Log;
+
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -142,6 +144,7 @@ public class SpdyFrameDecoder extends FrameDecoder {
     @Override
     protected Object decode(ChannelHandlerContext ctx, Channel channel, ChannelBuffer buffer)
             throws Exception {
+        Log.d("spdy", "decode, state: " + state);
         switch(state) {
         case READ_COMMON_HEADER:
             state = readCommonHeader(buffer);
@@ -358,6 +361,7 @@ public class SpdyFrameDecoder extends FrameDecoder {
         int flagsOffset  = frameOffset + SPDY_HEADER_FLAGS_OFFSET;
         int lengthOffset = frameOffset + SPDY_HEADER_LENGTH_OFFSET;
         buffer.skipBytes(SPDY_HEADER_SIZE);
+        Log.d("spdy", "frame offset: " + frameOffset);
 
         // Read common header fields
         boolean control = (buffer.getByte(frameOffset) & 0x80) != 0;
@@ -787,7 +791,7 @@ public class SpdyFrameDecoder extends FrameDecoder {
         }
     }
 
-    private void fireInvalidControlFrameException(ChannelHandlerContext ctx) {
+    private void fireInvalidControlFrameException(ChannelHandlerContext ctx) throws SpdyProtocolException {
         String message = "Received invalid control frame";
         switch (type) {
         case SPDY_SYN_STREAM_FRAME:
@@ -833,7 +837,8 @@ public class SpdyFrameDecoder extends FrameDecoder {
         fireProtocolException(ctx, message);
     }
 
-    private static void fireProtocolException(ChannelHandlerContext ctx, String message) {
-        Channels.fireExceptionCaught(ctx, new SpdyProtocolException(message));
+    private static void fireProtocolException(ChannelHandlerContext ctx, String message) throws SpdyProtocolException {
+        throw new SpdyProtocolException(message);
+//        Channels.fireExceptionCaught(ctx, );
     }
 }

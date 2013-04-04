@@ -86,7 +86,10 @@ public class SpdyActivity extends Activity {
             try {
                 do {
                     bytesRead = channel.read(b);
+                    Log.v(TAG, "bytes read " + bytesRead);
                     b.flip();
+                    channelBuffer.setIndex(b.position(), b.limit());
+                    Log.d(TAG, "read index: " + channelBuffer.readerIndex());
                     mSpdyFrameCodec.handleUpstream(null, null, channelBuffer);
                     b.clear();
                 } while (bytesRead > 0);
@@ -107,7 +110,13 @@ public class SpdyActivity extends Activity {
                 connector.connect(new InetSocketAddress("api.twitter.com", 443), 15000);
                 Log.d(TAG, "socket connected.");
                 SpdyFrameCodec codec = mSpdyFrameCodec;
-                codec.handleDownstream(null, null, connector, new DefaultSpdySynStreamFrame(1, 0, (byte) 0));
+                final DefaultSpdySynStreamFrame synStreamFrame = new DefaultSpdySynStreamFrame(1, 0, (byte) 0);
+                synStreamFrame.addHeader(":method", "GET");
+                synStreamFrame.addHeader(":path", "/1.1/statuses/home_timeline.json");
+                synStreamFrame.addHeader(":version", "HTTP/1.1");
+                synStreamFrame.addHeader(":host", "api.twitter.com:443");
+                synStreamFrame.addHeader(":scheme", "https");
+                codec.handleDownstream(null, null, connector, synStreamFrame);
                 Log.d(TAG, "Wrote to socket.");
             } catch (NoSuchAlgorithmException e) {
                 e.printStackTrace();

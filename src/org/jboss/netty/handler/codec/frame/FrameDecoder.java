@@ -33,18 +33,22 @@ public abstract class FrameDecoder {
     private void callDecode(
             ChannelHandlerContext context, Channel channel,
             ChannelBuffer cumulation) throws Exception {
+        Log.d("spdy", "callDecode");
 
         while (cumulation.readable()) {
+            Log.d("spdy", "cumulation: " + cumulation.readableBytes());
             int oldReaderIndex = cumulation.readerIndex();
             Object frame = decode(context, channel, cumulation);
             if (frame == null) {
                 if (oldReaderIndex == cumulation.readerIndex()) {
                     // Seems like more data is required.
                     // Let us wait for the next notification.
+                    Log.d("spdy", "more data required");
                     break;
                 } else {
                     // Previous data has been discarded.
                     // Probably it is reading on.
+                    Log.d("spdy", "reading on");
                     continue;
                 }
             } else if (oldReaderIndex == cumulation.readerIndex()) {
@@ -52,7 +56,7 @@ public abstract class FrameDecoder {
                         "decode() method must read at least one byte " +
                                 "if it returned a frame (caused by: " + getClass() + ')');
             }
-            Log.v("jle", "frame decoded: " + frame);
+            Log.d("spdy", "frame decoded: " + frame);
         }
     }
 
