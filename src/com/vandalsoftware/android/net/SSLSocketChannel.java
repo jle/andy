@@ -27,17 +27,6 @@ public final class SSLSocketChannel implements ByteChannel {
         mSocket = sock;
     }
 
-    public static SSLSocketChannel open(String protocol)
-            throws IOException, KeyManagementException, NoSuchAlgorithmException {
-        SSLContext ctx = SSLContext.getInstance(protocol);
-        ctx.init(null, null, null);
-        return open(ctx);
-    }
-
-    public static SSLSocketChannel open(SSLContext ctx) throws IOException {
-        return open(ctx.getSocketFactory());
-    }
-
     public static SSLSocketChannel open(SSLSocketFactory factory) throws IOException {
         return new SSLSocketChannel(factory.createSocket());
     }
