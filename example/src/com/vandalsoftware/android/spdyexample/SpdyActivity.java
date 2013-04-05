@@ -151,32 +151,24 @@ public class SpdyActivity extends Activity {
                     final int baselen = buffer.readableBytes();
                     int len = baselen;
                     int index = 0;
-//                    while (len > 60) {
-                        sb.setLength(0);
-                        try {
-                            byte[] outBytes = new byte[len - index];
-                            buffer.getBytes(buffer.readerIndex() + index, outBytes);
-                            Log.d(TAG, "decoding: " + outBytes.length);
-//                    Inflater inflater = new Inflater(JZlib.DEF_WBITS, false);
-//                    InputStream in = new InflaterInputStream(new ByteArrayInputStream(outBytes), inflater);
-                            Inflater inflater = new Inflater(false);
-                            InputStream in = new InflaterInputStream(new ByteArrayInputStream(outBytes), inflater);
-                            byte[] inBuf = new byte[1024];
-                            int count;
-                            while ((count = in.read(inBuf, 0, inBuf.length)) != -1) {
-                                sb.append(new String(inBuf, 0, count));
-                            }
-//                            inflater.setInput(outBytes, 0, outBytes.length);
-//                            byte[] outie = new byte[100];
-//                            inflater.inflate(outie);
-//                            Log.d(TAG, "decompressed " + new String(outie, "UTF-8"));
-                        } catch (IOException e) {
-                            e.printStackTrace();
+                    sb.setLength(0);
+                    byte[] outBytes = new byte[len - index];
+                    buffer.getBytes(buffer.readerIndex() + index, outBytes);
+                    Log.d(TAG, "decoding: " + outBytes.length);
+                    Inflater inflater = new Inflater(false);
+                    byte[] compressed = new byte[4096];
+                    byte[] decompressed = new byte[4096];
+                    while (buffer.readable()) {
+                        int length = Math.min(buffer.readableBytes(), compressed.length);
+                        buffer.readBytes(compressed, 0, length);
+                        if (inflater.needsInput()) {
+                            inflater.setInput(compressed, 0, length);
                         }
-                        Log.d(TAG, "done, len=" + len + ", res=" + sb.toString());
-                        index++;
-                        len = baselen - index;
-//                    }
+                        int inflated = inflater.inflate(decompressed);
+                        sb.append(new String(decompressed, 0, inflated));
+                    }
+                    inflater.end();
+                    Log.d(TAG, "done, len=" + len + ", res=" + sb.toString());
                 }
             } catch (IOException e) {
                 e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
