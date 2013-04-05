@@ -7,26 +7,27 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
-import com.vandalsoftware.android.spdy.FrameHandler;
 import com.vandalsoftware.android.net.SSLSocketChannel;
 import com.vandalsoftware.android.net.SocketReadHandler;
 import com.vandalsoftware.android.spdy.DefaultSpdySynStreamFrame;
+import com.vandalsoftware.android.spdy.FrameHandler;
 import com.vandalsoftware.android.spdy.SpdyDataFrame;
 import com.vandalsoftware.android.spdy.SpdyFrameCodec;
 import com.vandalsoftware.android.spdy.SpdySessionHandler;
+import com.vandalsoftware.android.spdy.SpdySynReplyFrame;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.channels.ByteChannel;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 
 public class SpdyActivity extends Activity {
     private static final String TAG = "spdy";
@@ -73,6 +74,7 @@ public class SpdyActivity extends Activity {
     class ConnectTask extends AsyncTask<Void, Void, Socket> implements SocketReadHandler, FrameHandler {
         private SpdyFrameCodec mSpdyFrameCodec;
         private SpdySessionHandler mSpdySessionHandler;
+        private IdentityHashMap<Integer, List<Map.Entry<String, String>>> mMap = new IdentityHashMap<Integer, List<Map.Entry<String, String>>>();
 
         @Override
         protected void onPreExecute() {
@@ -143,31 +145,62 @@ public class SpdyActivity extends Activity {
         public void handleFrame(Object frame) {
             try {
                 mSpdySessionHandler.messageReceived(null, null, frame);
-                if (frame instanceof SpdyDataFrame) {
+                if (frame instanceof SpdySynReplyFrame) {
+                    // We've made a network request and now we are receiving the reply.
+                    // Gather the stream Id and the headers.
+                    SpdySynReplyFrame synReplyFrame = (SpdySynReplyFrame) frame;
+                    final int streamId = synReplyFrame.getStreamId();
+                    if (streamId > 0) {
+                        mMap.put(streamId, synReplyFrame.getHeaders());
+                    }
+                } else if (frame instanceof SpdyDataFrame) {
                     Log.d(TAG, "Got data frame");
                     SpdyDataFrame dataFrame = (SpdyDataFrame) frame;
-                    ChannelBuffer buffer = dataFrame.getData();
-                    StringBuilder sb = new StringBuilder();
-                    final int baselen = buffer.readableBytes();
-                    int len = baselen;
-                    int index = 0;
-                    sb.setLength(0);
-                    byte[] outBytes = new byte[len - index];
-                    buffer.getBytes(buffer.readerIndex() + index, outBytes);
-                    Log.d(TAG, "decoding: " + outBytes.length);
-                    Inflater inflater = new Inflater(false);
-                    byte[] compressed = new byte[4096];
-                    byte[] decompressed = new byte[4096];
-                    while (buffer.readable()) {
-                        int length = Math.min(buffer.readableBytes(), compressed.length);
-                        buffer.readBytes(compressed, 0, length);
-                        if (inflater.needsInput()) {
-                            inflater.setInput(compressed, 0, length);
-                        }
-                        int inflated = inflater.inflate(decompressed);
-                        sb.append(new String(decompressed, 0, inflated));
+                    final int streamId = dataFrame.getStreamId();
+                    if (streamId == 0) {
+                        return;
                     }
-                    inflater.end();
+                    List<Map.Entry<String, String>> headers;
+                    if (dataFrame.isLast()) {
+                        headers = mMap.remove(streamId);
+                    } else {
+                        headers = mMap.get(streamId);
+                    }
+                    // Check the content-encoding header
+                    String encoding = null;
+                    for (Map.Entry<String, String> header : headers) {
+                        if ("content-encoding".equals(header.getKey())) {
+                            encoding = header.getValue();
+                            break;
+                        }
+                    }
+                    ChannelBuffer data = dataFrame.getData();
+                    StringBuilder sb = new StringBuilder();
+                    int len = data.readableBytes();
+                    if ("deflate".equals(encoding)) {
+                        Log.d(TAG, "deflating: " + len);
+                        Inflater inflater = new Inflater(false);
+                        byte[] compressed = new byte[4096];
+                        byte[] decompressed = new byte[4096];
+                        while (data.readable()) {
+                            int length = Math.min(data.readableBytes(), compressed.length);
+                            data.readBytes(compressed, 0, length);
+                            if (inflater.needsInput()) {
+                                inflater.setInput(compressed, 0, length);
+                            }
+                            int inflated = inflater.inflate(decompressed);
+                            sb.append(new String(decompressed, 0, inflated));
+                        }
+                        inflater.end();
+                    } else {
+                        Log.d(TAG, "raw: " + len);
+                        byte[] compressed = new byte[4096];
+                        while (data.readable()) {
+                            int length = Math.min(data.readableBytes(), compressed.length);
+                            data.readBytes(compressed, 0, length);
+                            sb.append(new String(compressed, 0, length));
+                        }
+                    }
                     Log.d(TAG, "done, len=" + len + ", res=" + sb.toString());
                 }
             } catch (IOException e) {
