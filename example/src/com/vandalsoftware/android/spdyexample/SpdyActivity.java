@@ -7,20 +7,26 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 
+import com.vandalsoftware.android.spdy.FrameHandler;
 import com.vandalsoftware.android.net.SSLSocketChannel;
 import com.vandalsoftware.android.net.SocketReadHandler;
 import com.vandalsoftware.android.spdy.DefaultSpdySynStreamFrame;
+import com.vandalsoftware.android.spdy.SpdyDataFrame;
 import com.vandalsoftware.android.spdy.SpdyFrameCodec;
+import com.vandalsoftware.android.spdy.SpdySessionHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
+import java.util.zip.Inflater;
+import java.util.zip.InflaterInputStream;
 
 public class SpdyActivity extends Activity {
     private static final String TAG = "spdy";
@@ -64,12 +70,14 @@ public class SpdyActivity extends Activity {
         mLogView.log(message);
     }
 
-    class ConnectTask extends AsyncTask<Void, Void, Socket> implements SocketReadHandler {
+    class ConnectTask extends AsyncTask<Void, Void, Socket> implements SocketReadHandler, FrameHandler {
         private SpdyFrameCodec mSpdyFrameCodec;
+        private SpdySessionHandler mSpdySessionHandler;
 
         @Override
         protected void onPreExecute() {
             mSpdyFrameCodec = new SpdyFrameCodec(3);
+            mSpdySessionHandler = new SpdySessionHandler(3, false);
         }
 
         @Override
@@ -77,22 +85,12 @@ public class SpdyActivity extends Activity {
             mSock = s;
         }
 
-        public void handleRead(ByteChannel channel) {
-            Log.d(TAG, "handleRead");
-            byte[] buf = new byte[1024];
-            ByteBuffer b = ByteBuffer.wrap(buf);
-            ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(b);
-            int bytesRead;
+        public void handleRead(ByteChannel channel, byte[] in, int index, int length) {
+            Log.d(TAG, "handleRead " + length);
+            ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(in, index, length);
             try {
-                do {
-                    bytesRead = channel.read(b);
-                    Log.v(TAG, "bytes read " + bytesRead);
-                    b.flip();
-                    channelBuffer.setIndex(b.position(), b.limit());
-                    Log.d(TAG, "read index: " + channelBuffer.readerIndex());
-                    mSpdyFrameCodec.handleUpstream(null, null, channelBuffer);
-                    b.clear();
-                } while (bytesRead > 0);
+                Log.d(TAG, "read index: " + channelBuffer.readerIndex());
+                mSpdyFrameCodec.handleUpstream(null, null, channelBuffer, this);
             } catch (IOException e) {
                 e.printStackTrace();
             } catch (Exception e) {
@@ -116,6 +114,8 @@ public class SpdyActivity extends Activity {
                 synStreamFrame.addHeader(":version", "HTTP/1.1");
                 synStreamFrame.addHeader(":host", "api.twitter.com:443");
                 synStreamFrame.addHeader(":scheme", "https");
+                synStreamFrame.setLast(true);
+                mSpdySessionHandler.handleDownstream(null, null, synStreamFrame);
                 codec.handleDownstream(null, null, connector, synStreamFrame);
                 Log.d(TAG, "Wrote to socket.");
             } catch (NoSuchAlgorithmException e) {
@@ -137,6 +137,52 @@ public class SpdyActivity extends Activity {
                 }
             }
             return s;
+        }
+
+        @Override
+        public void handleFrame(Object frame) {
+            try {
+                mSpdySessionHandler.messageReceived(null, null, frame);
+                if (frame instanceof SpdyDataFrame) {
+                    Log.d(TAG, "Got data frame");
+                    SpdyDataFrame dataFrame = (SpdyDataFrame) frame;
+                    ChannelBuffer buffer = dataFrame.getData();
+                    StringBuilder sb = new StringBuilder();
+                    final int baselen = buffer.readableBytes();
+                    int len = baselen;
+                    int index = 0;
+//                    while (len > 60) {
+                        sb.setLength(0);
+                        try {
+                            byte[] outBytes = new byte[len - index];
+                            buffer.getBytes(buffer.readerIndex() + index, outBytes);
+                            Log.d(TAG, "decoding: " + outBytes.length);
+//                    Inflater inflater = new Inflater(JZlib.DEF_WBITS, false);
+//                    InputStream in = new InflaterInputStream(new ByteArrayInputStream(outBytes), inflater);
+                            Inflater inflater = new Inflater(false);
+                            InputStream in = new InflaterInputStream(new ByteArrayInputStream(outBytes), inflater);
+                            byte[] inBuf = new byte[1024];
+                            int count;
+                            while ((count = in.read(inBuf, 0, inBuf.length)) != -1) {
+                                sb.append(new String(inBuf, 0, count));
+                            }
+//                            inflater.setInput(outBytes, 0, outBytes.length);
+//                            byte[] outie = new byte[100];
+//                            inflater.inflate(outie);
+//                            Log.d(TAG, "decompressed " + new String(outie, "UTF-8"));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                        Log.d(TAG, "done, len=" + len + ", res=" + sb.toString());
+                        index++;
+                        len = baselen - index;
+//                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (Exception e) {
+                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            }
         }
     }
 }

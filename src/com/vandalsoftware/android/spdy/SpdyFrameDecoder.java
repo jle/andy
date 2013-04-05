@@ -318,6 +318,8 @@ public class SpdyFrameDecoder extends FrameDecoder {
             // Generate data frames that do not exceed maxChunkSize
             int dataLength = Math.min(maxChunkSize, length);
 
+            Log.d("spdy", "dataLength " + dataLength);
+
             // Wait until entire frame is readable
             if (buffer.readableBytes() < dataLength) {
                 return null;

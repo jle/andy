@@ -99,8 +99,8 @@ public final class SSLSocketChannel implements ByteChannel {
         }
     }
 
-    protected final void handleRead() {
-        mSocketReadHandler.handleRead(this);
+    protected final void handleRead(byte[] in, int index, int length) {
+        mSocketReadHandler.handleRead(this, in, index, length);
     }
 
     @Override
@@ -133,10 +133,10 @@ public final class SSLSocketChannel implements ByteChannel {
                 while ((bytesRead = mInputStream.read(buf, index, len - index)) != -1) {
                     Log.v(TAG, "read from socket = " + bytesRead);
                     buffer.position(index).limit(index + bytesRead);
-                    Log.v(TAG, "buf " + buffer.position() + ", " + buffer.limit());
-                    handleRead();
+                    Log.v(TAG, "buf " + buffer.position() + ", " + buffer.limit() + ", " + buffer.remaining());
+                    handleRead(buf, index, bytesRead);
                     if (buffer.hasRemaining()) {
-                        index = bytesRead;
+                        index = buffer.position();
                     } else {
                         index = 0;
                         buffer.clear();

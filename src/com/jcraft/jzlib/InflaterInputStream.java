@@ -28,6 +28,8 @@ EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 package com.jcraft.jzlib;
+import android.util.Log;
+
 import java.io.*;
 
 public class InflaterInputStream extends FilterInputStream {
@@ -101,6 +103,7 @@ public class InflaterInputStream extends FilterInputStream {
       if(inflater.avail_in==0)
         fill();
       int err = inflater.inflate(JZlib.Z_NO_FLUSH);
+        Log.d("jz", "err " + err);
       n += inflater.next_out_index - off;
       off = inflater.next_out_index;
       switch(err) {
@@ -169,6 +172,7 @@ public class InflaterInputStream extends FilterInputStream {
   protected void fill() throws IOException {
     if (closed) { throw new IOException("Stream closed"); }
     int len = in.read(buf, 0, buf.length);
+      Log.d("jz", "len " + len);
     if (len == -1) {
       if(inflater.istate.wrap == 0 &&
          !inflater.finished()){

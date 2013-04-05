@@ -2,6 +2,7 @@ package org.jboss.netty.handler.codec.frame;
 
 import android.util.Log;
 
+import com.vandalsoftware.android.spdy.FrameHandler;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBufferFactory;
 import org.jboss.netty.buffer.ChannelBuffers;
@@ -32,7 +33,7 @@ public abstract class FrameDecoder {
 
     private void callDecode(
             ChannelHandlerContext context, Channel channel,
-            ChannelBuffer cumulation) throws Exception {
+            ChannelBuffer cumulation, FrameHandler frameHandler) throws Exception {
         Log.d("spdy", "callDecode");
 
         while (cumulation.readable()) {
@@ -57,10 +58,11 @@ public abstract class FrameDecoder {
                                 "if it returned a frame (caused by: " + getClass() + ')');
             }
             Log.d("spdy", "frame decoded: " + frame);
+            frameHandler.handleFrame(frame);
         }
     }
 
-    public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e, Object m) throws Exception {
+    public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e, Object m, FrameHandler frameHandler) throws Exception {
 
         ChannelBuffer input = (ChannelBuffer) m;
         if (!input.readable()) {
@@ -70,7 +72,7 @@ public abstract class FrameDecoder {
         if (cumulation == null) {
             try {
                 // the cumulation buffer is not created yet so just pass the input to callDecode(...) method
-                callDecode(ctx, null, input);
+                callDecode(ctx, null, input, frameHandler);
             } finally {
                 updateCumulation(ctx, input);
             }
@@ -78,7 +80,7 @@ public abstract class FrameDecoder {
         } else {
             input = appendToCumulation(input);
             try {
-                callDecode(ctx, null, input);
+                callDecode(ctx, null, input, frameHandler);
             } finally {
                 updateCumulation(ctx, input);
             }

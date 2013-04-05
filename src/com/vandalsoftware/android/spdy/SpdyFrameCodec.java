@@ -64,9 +64,9 @@ public class SpdyFrameCodec implements ChannelUpstreamHandler,
         encoder = new SpdyFrameEncoder(version, compressionLevel, windowBits, memLevel);
     }
 
-    public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e, Object o)
+    public void handleUpstream(ChannelHandlerContext ctx, ChannelEvent e, Object o, FrameHandler frameHandler)
             throws Exception {
-        decoder.handleUpstream(ctx, e, o);
+        decoder.handleUpstream(ctx, e, o, frameHandler);
     }
 
     public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent e, WritableByteChannel c, Object o)

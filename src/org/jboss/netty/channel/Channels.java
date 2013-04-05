@@ -4,26 +4,26 @@ import java.net.SocketAddress;
 
 public class Channels {
     public static ChannelFuture future(Channel channel) {
-        return null;  //To change body of created methods use File | Settings | File Templates.
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public static void write(ChannelHandlerContext ctx, ChannelFuture future, Object message, SocketAddress address) {
-        //To change body of created methods use File | Settings | File Templates.
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public static ChannelFuture succeededFuture(Channel channel) {
-        return null;  //To change body of created methods use File | Settings | File Templates.
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public static void close(ChannelHandlerContext ctx, ChannelFuture future) {
-        //To change body of created methods use File | Settings | File Templates.
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public static void fireMessageReceived(ChannelHandlerContext ctx, Object message, SocketAddress address) {
-
+        throw new UnsupportedOperationException("Not implemented");
     }
 
     public static void fireExceptionCaught(ChannelHandlerContext ctx, Exception e) {
-        //To change body of created methods use File | Settings | File Templates.
+        throw new UnsupportedOperationException("Not implemented");
     }
 }

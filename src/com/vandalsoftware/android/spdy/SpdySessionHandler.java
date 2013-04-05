@@ -15,6 +15,8 @@
  */
 package com.vandalsoftware.android.spdy;
 
+import android.util.Log;
+
 import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
 import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
@@ -97,11 +99,9 @@ public class SpdySessionHandler extends SimpleChannelUpstreamHandler
         flowControl = version >= 3;
     }
 
-    @Override
-    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e)
+    public void messageReceived(ChannelHandlerContext ctx, MessageEvent e, Object msg)
             throws Exception {
 
-        Object msg = e.getMessage();
         if (msg instanceof SpdyDataFrame) {
 
             /*
@@ -254,6 +254,9 @@ public class SpdySessionHandler extends SimpleChannelUpstreamHandler
             int streamID = spdySynReplyFrame.getStreamId();
 
             // Check if we received a valid SYN_REPLY frame
+            Log.d("spdy", "isInvalid: " + spdySynReplyFrame.isInvalid());
+            Log.d("spdy", "isRemoteInitiatedID: " + isRemoteInitiatedID(streamID));
+            Log.d("spdy", "isRemoteSideClosed: " + spdySession.isRemoteSideClosed(streamID));
             if (spdySynReplyFrame.isInvalid() ||
                 isRemoteInitiatedID(streamID) ||
                 spdySession.isRemoteSideClosed(streamID)) {
@@ -411,7 +414,7 @@ public class SpdySessionHandler extends SimpleChannelUpstreamHandler
         super.exceptionCaught(ctx, e);
     }
 
-    public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent evt)
+    public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent evt, Object msg)
             throws Exception {
         if (evt instanceof ChannelStateEvent) {
             ChannelStateEvent e = (ChannelStateEvent) evt;
@@ -432,13 +435,12 @@ public class SpdySessionHandler extends SimpleChannelUpstreamHandler
                 }
             }
         }
-        if (!(evt instanceof MessageEvent)) {
-            ctx.sendDownstream(evt);
-            return;
-        }
+//        if (!(evt instanceof MessageEvent)) {
+//            ctx.sendDownstream(evt);
+//            return;
+//        }
 
         MessageEvent e = (MessageEvent) evt;
-        Object msg = e.getMessage();
 
         if (msg instanceof SpdyDataFrame) {
 
@@ -633,7 +635,7 @@ public class SpdySessionHandler extends SimpleChannelUpstreamHandler
             return;
         }
 
-        ctx.sendDownstream(evt);
+//        ctx.sendDownstream(evt);
     }
 
     /*
