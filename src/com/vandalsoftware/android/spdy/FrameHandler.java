@@ -1,6 +1,5 @@
 package com.vandalsoftware.android.spdy;
 
 public interface FrameHandler {
-
-    void handleFrame(Object frame);
+    public void handleFrame(Object frame);
 }

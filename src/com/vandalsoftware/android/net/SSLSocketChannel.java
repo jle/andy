@@ -2,8 +2,8 @@ package com.vandalsoftware.android.net;
 
 import android.util.Log;
 
-import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLSocketFactory;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,8 +11,6 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.ByteChannel;
-import java.security.KeyManagementException;
-import java.security.NoSuchAlgorithmException;
 
 public final class SSLSocketChannel implements ByteChannel {
     private static final String TAG = "net";
@@ -49,27 +47,21 @@ public final class SSLSocketChannel implements ByteChannel {
         mSocketReadHandler = handler;
     }
 
-    public int write(ByteBuffer src) {
-        int writtenBytes = 0;
-        try {
-            final byte[] buf = mOutBuf;
-            Log.d(TAG, "begin writing..." + src.remaining());
-            while (src.hasRemaining()) {
-                final int byteCount = Math.min(src.remaining(), buf.length);
-                src.get(buf, 0, byteCount);
-                mOutputStream.write(buf, 0, byteCount);
-                writtenBytes += byteCount;
-            }
-            src.compact();
-            Log.d(TAG, "done writing = " + writtenBytes);
-        } catch (IOException e) {
-            e.printStackTrace();
-            try {
-                close();
-            } catch (IOException e1) {
-                e1.printStackTrace();
-            }
+    public int write(ByteBuffer src) throws IOException {
+        if (!mConnected) {
+            return 0;
         }
+        int writtenBytes = 0;
+        final byte[] buf = mOutBuf;
+        Log.d(TAG, "begin writing..." + src.remaining());
+        while (src.hasRemaining()) {
+            final int byteCount = Math.min(src.remaining(), buf.length);
+            src.get(buf, 0, byteCount);
+            mOutputStream.write(buf, 0, byteCount);
+            writtenBytes += byteCount;
+        }
+        src.compact();
+        Log.d(TAG, "done writing = " + writtenBytes);
         return writtenBytes;
     }
 
@@ -81,7 +73,6 @@ public final class SSLSocketChannel implements ByteChannel {
     @Override
     public void close() throws IOException {
         try {
-            mOutputStream.close();
             mSocket.close();
         } finally {
             mConnected = false;
@@ -136,6 +127,11 @@ public final class SSLSocketChannel implements ByteChannel {
                 e.printStackTrace();
             } finally {
                 Log.d(TAG, "Finish reading.");
+                try {
+                    mInputStream.close();
+                    close();
+                } catch (IOException ignored) {
+                }
             }
         }
     }

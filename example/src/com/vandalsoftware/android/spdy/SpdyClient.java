@@ -16,6 +16,9 @@ import java.nio.channels.ByteChannel;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
 public class SpdyClient {
@@ -23,6 +26,7 @@ public class SpdyClient {
 
     private int mVersion;
     private SSLSocketFactory mSocketFactory;
+    AtomicInteger mCurrentStreamId;
 
     public SpdyClient(SSLSocketFactory socketFactory) {
         this(3, socketFactory);
@@ -31,10 +35,12 @@ public class SpdyClient {
     public SpdyClient(int version, SSLSocketFactory socketFactory) {
         mVersion = version;
         mSocketFactory = socketFactory;
+        mCurrentStreamId = new AtomicInteger(1);
     }
 
-    public SpdyHttpResponse execute(SpdyHttpRequest request) throws IOException {
-        MySocketReadHandler handler = new MySocketReadHandler(mVersion);
+    public void execute(SpdyHttpRequest request) throws IOException {
+        SessionHandler handler = new SessionHandler(mVersion);
+        handler.addFrameHandler(new HttpStreamHandler());
         SSLSocketChannel channel = SSLSocketChannel.open(mSocketFactory);
         channel.setSocketReadHandler(handler);
         final URI uri = request.getURI();
@@ -45,7 +51,7 @@ public class SpdyClient {
         int socketTimeout = HttpConnectionParams.getSoTimeout(request.getParams());
         channel.connect(new InetSocketAddress(uri.getHost(), port), socketTimeout);
         Log.d(TAG, "socket connected.");
-        final DefaultSpdySynStreamFrame synStreamFrame = new DefaultSpdySynStreamFrame(1, 0, (byte) 0);
+        final DefaultSpdySynStreamFrame synStreamFrame = new DefaultSpdySynStreamFrame(mCurrentStreamId.getAndAdd(2), 0, (byte) 0);
         synStreamFrame.addHeader(":method", request.getMethod());
         synStreamFrame.addHeader(":path", uri.getPath());
         synStreamFrame.addHeader(":version", request.getProtocolVersion());
@@ -54,44 +60,17 @@ public class SpdyClient {
         synStreamFrame.setLast(true);
         Log.d(TAG, "Wrote to socket.");
         handler.send(channel, synStreamFrame);
-        return null;
     }
 
-    private class MySocketReadHandler implements SocketReadHandler, FrameHandler {
-        private SpdyFrameCodec mSpdyFrameCodec;
-        private SpdySessionHandler mSpdySessionHandler;
+    class HttpStreamHandler implements FrameHandler {
         private IdentityHashMap<Integer, List<Map.Entry<String, String>>> mMap = new IdentityHashMap<Integer, List<Map.Entry<String, String>>>();
 
-        public MySocketReadHandler(int version) {
-            mSpdyFrameCodec = new SpdyFrameCodec(version);
-            mSpdySessionHandler = new SpdySessionHandler(version, false);
+        public HttpStreamHandler() {
         }
-        public void send(SSLSocketChannel channel, Object frame) {
-            try {
-                mSpdySessionHandler.handleDownstream(null, null, frame);
-                mSpdyFrameCodec.handleDownstream(null, null, channel, frame);
-            } catch (Exception e) {
-                // TODO attach this exception to the response reason for failing
-                e.printStackTrace();
-            }
-        }
-        public void handleRead(ByteChannel channel, byte[] in, int index, int length) {
-            Log.d(TAG, "handleRead " + length);
-            ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(in, index, length);
-            try {
-                Log.d(TAG, "read index: " + channelBuffer.readerIndex());
-                mSpdyFrameCodec.handleUpstream(null, null, channelBuffer, this);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (Exception e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-            }
-            Log.d(TAG, "handleRead done");
-        }
+
         @Override
         public void handleFrame(Object frame) {
             try {
-                mSpdySessionHandler.messageReceived(null, null, frame);
                 if (frame instanceof SpdySynReplyFrame) {
                     // We've made a network request and now we are receiving the reply.
                     // Gather the stream Id and the headers.
@@ -150,11 +129,61 @@ public class SpdyClient {
                     }
                     Log.d(TAG, "done, len=" + len + ", res=" + sb.toString());
                 }
-            } catch (IOException e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
-            } catch (Exception e) {
-                e.printStackTrace();  //To change body of catch statement use File | Settings | File Templates.
+            } catch (DataFormatException e) {
+                e.printStackTrace();
             }
+        }
+    }
+
+    private class SessionHandler implements SocketReadHandler, FrameHandler {
+        private SpdyFrameCodec mSpdyFrameCodec;
+        private SpdySessionHandler mSpdySessionHandler;
+        final CopyOnWriteArrayList<FrameHandler> mFrameHandlers = new CopyOnWriteArrayList<FrameHandler>();
+
+        public SessionHandler(int version) {
+            mSpdyFrameCodec = new SpdyFrameCodec(version);
+            mSpdySessionHandler = new SpdySessionHandler(version, false);
+        }
+
+        public void send(SSLSocketChannel channel, Object frame) {
+            try {
+                mSpdySessionHandler.handleDownstream(null, null, frame);
+                mSpdyFrameCodec.handleDownstream(null, null, channel, frame);
+            } catch (Exception e) {
+                // TODO attach this exception to the response reason for failing
+                e.printStackTrace();
+            }
+        }
+
+        public void handleRead(ByteChannel channel, byte[] in, int index, int length) {
+            Log.d(TAG, "handleRead " + length);
+            ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(in, index, length);
+            try {
+                Log.d(TAG, "read index: " + channelBuffer.readerIndex());
+                mSpdyFrameCodec.handleUpstream(null, null, channelBuffer, this);
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            Log.d(TAG, "handleRead done");
+        }
+
+        @Override
+        public void handleFrame(Object frame) {
+            try {
+                mSpdySessionHandler.messageReceived(null, null, frame);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            // Hand this off to the next frame handler
+            for (FrameHandler handler : mFrameHandlers) {
+                handler.handleFrame(frame);
+            }
+        }
+
+        public void addFrameHandler(FrameHandler handler) {
+            mFrameHandlers.add(handler);
         }
     }
 }
