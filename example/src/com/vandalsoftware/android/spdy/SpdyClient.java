@@ -12,7 +12,6 @@ import javax.net.ssl.SSLSocketFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.nio.channels.ByteChannel;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -155,7 +154,7 @@ public class SpdyClient {
             }
         }
 
-        public void handleRead(ByteChannel channel, byte[] in, int index, int length) {
+        public void handleRead(byte[] in, int index, int length) {
             Log.d(TAG, "handleRead " + length);
             ChannelBuffer channelBuffer = ChannelBuffers.wrappedBuffer(in, index, length);
             try {

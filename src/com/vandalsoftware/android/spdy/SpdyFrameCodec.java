@@ -15,12 +15,11 @@
  */
 package com.vandalsoftware.android.spdy;
 
+import com.vandalsoftware.android.net.SSLSocketChannel;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelHandlerContext;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
-
-import java.nio.channels.WritableByteChannel;
 /**
  * A combination of {@link SpdyFrameDecoder} and {@link SpdyFrameEncoder}.
  * @apiviz.has org.jboss.netty.handler.codec.spdy.SpdyFrameDecoder
@@ -69,7 +68,7 @@ public class SpdyFrameCodec implements ChannelUpstreamHandler,
         decoder.handleUpstream(ctx, e, o, frameHandler);
     }
 
-    public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent e, WritableByteChannel c, Object o)
+    public void handleDownstream(ChannelHandlerContext ctx, ChannelEvent e, SSLSocketChannel c, Object o)
             throws Exception {
         encoder.handleDownstream(ctx, e, c, o);
     }

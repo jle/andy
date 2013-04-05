@@ -2,24 +2,23 @@ package com.vandalsoftware.android.net;
 
 import android.util.Log;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+
 import javax.net.ssl.SSLSocketFactory;
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.Socket;
-import java.nio.ByteBuffer;
-import java.nio.channels.ByteChannel;
 
-public final class SSLSocketChannel implements ByteChannel {
+public final class SSLSocketChannel {
     private static final String TAG = "net";
     private final Socket mSocket;
     private SocketReadHandler mSocketReadHandler;
     private boolean mConnected;
     private OutputStream mOutputStream;
     private byte[] mOutBuf;
-    protected ByteBuffer mInBuffer;
+    private byte[] mInBuf;
 
     private SSLSocketChannel(Socket sock) {
         mSocket = sock;
@@ -36,7 +35,7 @@ public final class SSLSocketChannel implements ByteChannel {
         }
         mOutputStream = mSocket.getOutputStream();
         mOutBuf = new byte[8192];
-        mInBuffer = ByteBuffer.wrap(new byte[8192]);
+        mInBuf = new byte[8192];
         mConnected = true;
     }
 
@@ -47,50 +46,32 @@ public final class SSLSocketChannel implements ByteChannel {
         mSocketReadHandler = handler;
     }
 
-    public int write(ByteBuffer src) throws IOException {
+    public int write(ChannelBuffer src) throws IOException {
         if (!mConnected) {
             return 0;
         }
         int writtenBytes = 0;
         final byte[] buf = mOutBuf;
-        Log.d(TAG, "begin writing..." + src.remaining());
-        while (src.hasRemaining()) {
-            final int byteCount = Math.min(src.remaining(), buf.length);
-            src.get(buf, 0, byteCount);
+        Log.d(TAG, "begin writing..." + src.readableBytes());
+        while (src.readable()) {
+            final int byteCount = Math.min(src.readableBytes(), buf.length);
+            src.readBytes(buf, 0, byteCount);
             mOutputStream.write(buf, 0, byteCount);
             writtenBytes += byteCount;
         }
-        src.compact();
         Log.d(TAG, "done writing = " + writtenBytes);
         return writtenBytes;
     }
 
-    @Override
-    public boolean isOpen() {
+    public boolean isConnected() {
         return mConnected;
     }
 
-    @Override
     public void close() throws IOException {
         try {
             mSocket.close();
         } finally {
             mConnected = false;
-        }
-    }
-
-    protected final void handleRead(byte[] in, int index, int length) {
-        mSocketReadHandler.handleRead(this, in, index, length);
-    }
-
-    @Override
-    public int read(ByteBuffer dst) throws IOException {
-        int remaining = mInBuffer.remaining();
-        if (remaining > 0) {
-            dst.put(mInBuffer);
-            return remaining - mInBuffer.remaining();
-        } else {
-            return 0;
         }
     }
 
@@ -105,21 +86,14 @@ public final class SSLSocketChannel implements ByteChannel {
         public void run() {
             Log.d(TAG, "Start reading.");
             try {
-                final ByteBuffer buffer = mInBuffer;
-                final byte[] buf = buffer.array();
+                final byte[] buf = mInBuf;
                 final int len = buf.length;
                 int index = 0;
                 int bytesRead;
                 while ((bytesRead = mInputStream.read(buf, index, len - index)) != -1) {
                     Log.v(TAG, "read from socket = " + bytesRead);
-                    buffer.position(index).limit(index + bytesRead);
-                    Log.v(TAG, "buf " + buffer.position() + ", " + buffer.limit() + ", " + buffer.remaining());
-                    handleRead(buf, index, bytesRead);
-                    if (buffer.hasRemaining()) {
-                        index = buffer.position();
-                    } else {
-                        index = 0;
-                        buffer.clear();
+                    if (mSocketReadHandler != null) {
+                        mSocketReadHandler.handleRead(buf, index, bytesRead);
                     }
                 }
             } catch (IOException e) {

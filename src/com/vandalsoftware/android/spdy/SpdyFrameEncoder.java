@@ -17,6 +17,7 @@ package com.vandalsoftware.android.spdy;
 
 import android.util.Log;
 
+import com.vandalsoftware.android.net.SSLSocketChannel;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.ChannelDownstreamHandler;
@@ -27,7 +28,6 @@ import org.jboss.netty.channel.Channels;
 import org.jboss.netty.channel.MessageEvent;
 
 import java.nio.ByteOrder;
-import java.nio.channels.WritableByteChannel;
 import java.util.Set;
 
 import static com.vandalsoftware.android.spdy.SpdyCodecUtil.SPDY_DATA_FLAG_FIN;
@@ -101,7 +101,7 @@ public class SpdyFrameEncoder implements ChannelDownstreamHandler {
     }
 
     public void handleDownstream(
-            final ChannelHandlerContext ctx, ChannelEvent evt, WritableByteChannel c, Object msg) throws Exception {
+            final ChannelHandlerContext ctx, ChannelEvent evt, SSLSocketChannel c, Object msg) throws Exception {
         if (evt instanceof ChannelStateEvent) {
             ChannelStateEvent e = (ChannelStateEvent) evt;
             switch (e.getState()) {
@@ -180,7 +180,7 @@ public class SpdyFrameEncoder implements ChannelDownstreamHandler {
                 final ChannelBuffer buffer = ChannelBuffers.wrappedBuffer(frame, data);
                 Log.d("spdy", "Writeable: " + buffer.readableBytes());
                 Log.d("spdy", "Writing syn " + msg);
-                c.write(buffer.toByteBuffer());
+                c.write(buffer);
             }
             return;
 
