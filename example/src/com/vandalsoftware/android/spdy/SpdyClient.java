@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
 
@@ -38,17 +39,17 @@ public class SpdyClient {
     }
 
     public void execute(SpdyHttpRequest request) throws IOException {
-        SessionHandler handler = new SessionHandler(mVersion);
-        handler.addFrameHandler(new HttpStreamHandler());
-        SSLSocketChannel channel = SSLSocketChannel.open(mSocketFactory);
-        channel.setSocketReadHandler(handler);
         final URI uri = request.getURI();
+        // Check if a connection is already established with the desired host.
+
+        // Get a handle on the channel
+        SessionHandler handler = new SessionHandler(mVersion, SSLSocketChannel.open(mSocketFactory));
+        handler.addFrameHandler(new HttpStreamHandler());
         int port = uri.getPort();
         if (port == -1) {
             port = 443;
         }
-        int socketTimeout = HttpConnectionParams.getSoTimeout(request.getParams());
-        channel.connect(new InetSocketAddress(uri.getHost(), port), socketTimeout);
+        handler.connect(new InetSocketAddress(uri.getHost(), port), 15000);
         Log.d(TAG, "socket connected.");
         final DefaultSpdySynStreamFrame synStreamFrame = new DefaultSpdySynStreamFrame(mCurrentStreamId.getAndAdd(2), 0, (byte) 0);
         synStreamFrame.addHeader(":method", request.getMethod());
@@ -58,9 +59,35 @@ public class SpdyClient {
         synStreamFrame.addHeader(":scheme", uri.getScheme());
         synStreamFrame.setLast(true);
         Log.d(TAG, "Wrote to socket.");
-        handler.send(channel, synStreamFrame);
+        handler.send(synStreamFrame);
     }
 
+    class HostPort {
+        public final String host;
+        public final int port;
+
+        HostPort(String host, int port) {
+            this.host = host;
+            this.port = port;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+
+            HostPort other = (HostPort) o;
+            return port == other.port && host.equals(other.host);
+
+        }
+
+        @Override
+        public int hashCode() {
+            int result = host.hashCode();
+            result = 31 * result + port;
+            return result;
+        }
+    }
     class HttpStreamHandler implements FrameHandler {
         private IdentityHashMap<Integer, List<Map.Entry<String, String>>> mMap = new IdentityHashMap<Integer, List<Map.Entry<String, String>>>();
 
@@ -135,22 +162,35 @@ public class SpdyClient {
     }
 
     private class SessionHandler implements SocketReadHandler, FrameHandler {
-        private SpdyFrameCodec mSpdyFrameCodec;
-        private SpdySessionHandler mSpdySessionHandler;
-        final CopyOnWriteArrayList<FrameHandler> mFrameHandlers = new CopyOnWriteArrayList<FrameHandler>();
+        private final SpdyFrameCodec mSpdyFrameCodec;
+        private final SpdySessionHandler mSpdySessionHandler;
+        private final CopyOnWriteArrayList<FrameHandler> mFrameHandlers;
+        private final ReentrantLock mLock;
+        private final SSLSocketChannel mChannel;
 
-        public SessionHandler(int version) {
+        public SessionHandler(int version, SSLSocketChannel channel) {
             mSpdyFrameCodec = new SpdyFrameCodec(version);
             mSpdySessionHandler = new SpdySessionHandler(version, false);
+            mFrameHandlers = new CopyOnWriteArrayList<FrameHandler>();
+            mLock = new ReentrantLock();
+            channel.setSocketReadHandler(this);
+            mChannel = channel;
         }
 
-        public void send(SSLSocketChannel channel, Object frame) {
+        public void connect(InetSocketAddress remoteAddress, int socketTimeout) throws IOException {
+            mChannel.connect(remoteAddress, socketTimeout);
+        }
+
+        public void send(Object frame) {
+            mLock.lock();
             try {
                 mSpdySessionHandler.handleDownstream(null, null, frame);
-                mSpdyFrameCodec.handleDownstream(null, null, channel, frame);
+                mSpdyFrameCodec.handleDownstream(null, null, mChannel, frame);
             } catch (Exception e) {
                 // TODO attach this exception to the response reason for failing
                 e.printStackTrace();
+            } finally {
+                mLock.unlock();
             }
         }
 
