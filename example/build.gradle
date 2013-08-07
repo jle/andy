@@ -1,0 +1,17 @@
+apply plugin: 'android'
+
+android {
+    compileSdkVersion 18
+    buildToolsVersion '18.0.1'
+
+    defaultConfig {
+        minSdkVersion 8
+        targetSdkVersion 18
+
+        proguardFile getDefaultProguardFile('proguard-android.txt')
+    }
+}
+
+dependencies {
+    compile project(':library')
+}
