@@ -1,4 +1,4 @@
 ANDY
 ====
 
-ANDY is the Android SPDY library
+ANDY is a SPDY library for Android apps.
